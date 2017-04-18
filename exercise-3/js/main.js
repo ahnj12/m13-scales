@@ -6,17 +6,22 @@ $(function() {
         var sex = 'female';
         var type = 'binge';
 
-        // Filter data down
-        var data = allData.filter(function(d) {
+        function setData(sex, type)
+        {
+            return allData.filter(function(d) {
                 return d.type == type && d.sex == sex
             })
             // Sort the data alphabetically
             // Hint: http://stackoverflow.com/questions/6712034/sort-array-by-firstname-alphabetically-in-javascript
-            .sort(function(a, b) {
-                if (a.state_name < b.state_name) return -1;
-                if (a.state_name > b.state_name) return 1;
-                return 0;
-            });
+                .sort(function(a, b) {
+                    if (a.state_name < b.state_name) return -1;
+                    if (a.state_name > b.state_name) return 1;
+                    return 0;
+                });
+        }
+
+        // Filter data down
+
 
         // Margin: how much space to put in the SVG for axes/titles
         var margin = {
@@ -79,45 +84,50 @@ $(function() {
         // Define a yScale with d3.scaleLinear. Domain/rage will be set in the setScales function.
         var yScale = d3.scaleLinear();
 
+        function setScales(data)
+        {
+            // Get the unique values of states for the domain of your x scale
+            var states = data.map(function(d) {
+                return d.state;
+            });
 
-        // Get the unique values of states for the domain of your x scale
-        var states = data.map(function(d) {
-            return d.state;
-        });
+            // Set the domain/range of your xScale
+            xScale.range([0, drawWidth])
+                .padding(0.1)
+                .domain(states);
 
-        // Set the domain/range of your xScale
-        xScale.range([0, drawWidth])
-            .padding(0.1)
-            .domain(states);
+            // Get min/max values of the percent data (for your yScale domain)
+            var yMin = d3.min(data, function(d) {
+                return +d.percent;
+            });
 
-        // Get min/max values of the percent data (for your yScale domain)
-        var yMin = d3.min(data, function(d) {
-            return +d.percent;
-        });
+            var yMax = d3.max(data, function(d) {
+                return +d.percent;
+            });
 
-        var yMax = d3.max(data, function(d) {
-            return +d.percent;
-        });
+            // Set the domain/range of your yScale
+            yScale.range([drawHeight, 0])
+                .domain([0, yMax]);
+        }
 
-        // Set the domain/range of your yScale
-        yScale.range([drawHeight, 0])
-            .domain([0, yMax]);
+        function setAxes()
+        {
+            // Set the scale of your xAxis object
+            xAxis.scale(xScale);
 
-        // Set the scale of your xAxis object
-        xAxis.scale(xScale);
+            // Set the scale of your yAxis object
+            yAxis.scale(yScale);
 
-        // Set the scale of your yAxis object
-        yAxis.scale(yScale);
+            // Render (call) your xAxis in your xAxisLabel
+            xAxisLabel.transition().call(xAxis);
 
-        // Render (call) your xAxis in your xAxisLabel
-        xAxisLabel.call(xAxis);
+            // Render (call) your yAxis in your yAxisLabel
+            yAxisLabel.transition().call(yAxis);
 
-        // Render (call) your yAxis in your yAxisLabel
-        yAxisLabel.call(yAxis);
-
-        // Update xAxisText and yAxisText labels
-        xAxisText.text('State');
-        yAxisText.text('Percent Drinking (' + sex + ', ' + type + ')');
+            // Update xAxisText and yAxisText labels
+            xAxisText.text('State');
+            yAxisText.text('Percent Drinking (' + sex + ', ' + type + ')');
+        }
 
 
         // Add tip
@@ -126,24 +136,60 @@ $(function() {
         });
         g.call(tip);
 
-        // Store the data-join in a function: make sure to set the scales and update the axes in your function.
-        // Select all rects and bind data
-        var bars = g.selectAll('rect').data(data);
+        function draw(data)
+        {
+            setScales(data);
 
-        // Use the .enter() method to get your entering elements, and assign initial positions
-        bars.enter().append('rect')
-            .attr('x', function(d) {
-                return xScale(d.state);
-            })
-            .attr('class', 'bar')
-            .on('mouseover', tip.show)
-            .on('mouseout', tip.hide)
-            .attr('width', xScale.bandwidth())
-            .attr('y', function(d) {
-                return yScale(d.percent);
-            })
-            .attr('height', function(d) {
-                return drawHeight - yScale(d.percent);
-            });
+            setAxes();
+
+            // Store the data-join in a function: make sure to set the scales and update the axes in your function.
+            // Select all rects and bind data
+            var bars = g.selectAll('rect').data(data);
+
+            // Use the .enter() method to get your entering elements, and assign initial positions
+            bars.enter().append('rect')
+                .merge(bars)
+                .attr('class', 'bar')
+                .on('mouseover', tip.show)
+                .on('mouseout', tip.hide)
+                .attr('height', 0)
+                .attr('y', function(d)
+                {
+                    return drawHeight
+                })
+                .attr('x', function(d) {
+                    return xScale(d.state);
+                })
+                .attr('width', xScale.bandwidth())
+                .transition().delay(function (d,i){ return i * 100;})
+                .duration(1000)
+                .attr('y', function(d) {
+                    return yScale(d.percent);
+                })
+                .attr('height', function(d) {
+                    return drawHeight - yScale(d.percent);
+                });
+
+            bars.exit().remove();
+        }
+
+        $('input[type=radio]').change(function()
+        {
+            sex = 'female';
+            if ($('#option1').is(':checked'))
+            {
+                sex = 'male';
+            }
+
+            type = 'binge';
+            if ($('#option3').is(':checked'))
+            {
+                type = 'any';
+            }
+            draw(setData(sex, type));
+        });
+
+        // initial draw
+        draw(setData(sex, type));
     });
 });
